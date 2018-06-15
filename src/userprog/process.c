@@ -97,10 +97,11 @@ start_process(void *file_name_)
    does nothing. */
 int process_wait(tid_t child_tid UNUSED)
 {
-  while (true)
-  {
-    int i = 1;
-    i++;
+  for(int i=0; i < 1000; i++){
+    for(int j = 0; j < 1000; j++){
+      int k = 0;
+      k++;
+    }
   }
   return -1;
 }
@@ -515,42 +516,42 @@ setup_stack(void **esp, int argc, char **argv)
     if (success)
     {
       *esp = PHYS_BASE;
-      uint32_t *addr_stack[argc + 1];
+      // uint32_t *addr_stack[argc + 1];
+      char *addr_stack[argc + 1];
 
       // Add every argument to stack and store the address in stack in addr_stack
       for (int i = 0; i < argc; i++)
       {
-        *esp = *esp - strlen(argv[i]) + 1;
+        *esp = *esp - (strlen(argv[i]) + 1) * sizeof(char);
         addr_stack[i] = *esp;
         memcpy(*esp, argv[i], strlen(argv[i]) + 1);
       }
-
+      
       // Word-aligned
+      addr_stack[argc] = 0;
       int j = (size_t)*esp % 4;
       if (j > 0)
       {
         *esp = *esp - j;
-        memcpy(*esp, &argv[argc], j);
+        memcpy(*esp, &addr_stack[argc], j);
       }
 
       // Push the address of arguments to stack
-      // addr_stack[argc] = (uint32_t *)0;
-      *esp = *esp - 4; //32bit
-      (*(int *)(*esp)) = 0;
-      for (int i = argc - 1; i >= 0; i--)
+      for (int i = argc; i >= 0; i--)
       {
-        *esp = *esp - 4; //32bit
-        memcpy(*esp, addr_stack[i], 4);
+        *esp = *esp - 4;
+        memcpy(*esp, &addr_stack[i], 4);
       }
 
       // Push argv, argc, return address to stack
-      uint32_t *argv_addr = *esp;
-      *esp = *esp - 4;
-      memcpy(*esp, argv_addr, 4);
-      *esp = *esp - 4;
-      memcpy(*esp, &argc, 4);
-      *esp = *esp - 4;
-      memcpy(*esp, &argv[argc], 4);
+      char *argv_addr = *esp;
+      *esp = *esp - sizeof(char **);
+      memcpy(*esp, &argv_addr, sizeof(char **));
+      *esp = *esp - sizeof(int);
+      memcpy(*esp, &argc, sizeof(int));
+      *esp = *esp - sizeof(void *);
+      memcpy(*esp, &addr_stack[argc], sizeof(void *));
+      // hex_dump((uintptr_t)*esp, *esp, sizeof(char) * 200, true);
     }
     else
     {

@@ -22,6 +22,7 @@
 #include "threads/palloc.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
@@ -89,6 +90,14 @@ main (void)
      then enable console locking. */
   thread_init ();
   console_init ();  
+
+  int i = 1000000;
+  while(i-- >= 0){
+    barrier();
+    if(i == 0){
+      printf("LOOP FINISHED\n");
+    }
+  }
 
   /* Greet user. */
   printf ("Pintos booting with %'"PRIu32" kB RAM...\n",
