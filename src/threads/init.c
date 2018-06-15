@@ -91,13 +91,13 @@ main (void)
   thread_init ();
   console_init ();  
 
-  int i = 1000000;
-  while(i-- >= 0){
-    barrier();
-    if(i == 0){
-      printf("LOOP FINISHED\n");
-    }
-  }
+  // int i = 1000000;
+  // while(i-- >= 0){
+  //   barrier();
+  //   if(i == 0){
+  //     printf("LOOP FINISHED\n");
+  //   }
+  // }
 
   /* Greet user. */
   printf ("Pintos booting with %'"PRIu32" kB RAM...\n",
