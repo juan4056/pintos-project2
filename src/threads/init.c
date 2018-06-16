@@ -91,17 +91,16 @@ main (void)
   thread_init ();
   console_init ();  
 
-  // int i = 1000000;
-  // while(i-- >= 0){
-  //   barrier();
-  //   if(i == 0){
-  //     printf("LOOP FINISHED\n");
-  //   }
-  // }
-
   /* Greet user. */
   printf ("Pintos booting with %'"PRIu32" kB RAM...\n",
           init_ram_pages * PGSIZE / 1024);
+
+  // /* Greet user. */
+  // int buffer_size=100;
+  // char buffer[buffer_size];
+  // snprintf(buffer, buffer_size, "Pintos booting with %'"PRIu32" kB RAM...\n",init_ram_pages * PGSIZE / 1024);
+  // buffer_size = strlen(buffer);
+  // putbuf(buffer, buffer_size);
 
   /* Initialize memory system. */
   palloc_init (user_page_limit);

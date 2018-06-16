@@ -525,7 +525,6 @@ setup_stack(void **esp, int argc, char **argv)
         *esp = *esp - (strlen(argv[i]) + 1) * sizeof(char);
         addr_stack[i] = *esp;
         memcpy(*esp, argv[i], strlen(argv[i]) + 1);
-        //asasddas
       }
       
       // Word-aligned

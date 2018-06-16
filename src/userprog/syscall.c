@@ -28,7 +28,7 @@ syscall_handler(struct intr_frame *f UNUSED)
 {
   if (!is_user_vaddr(f->esp))
   {
-    thread_exit();
+    exit_process(-1);
   }
   int option = *(int *)f->esp;
   switch (option)
@@ -47,7 +47,7 @@ syscall_handler(struct intr_frame *f UNUSED)
     break;
   default:
     printf("system call!\n");
-    thread_exit();
+    exit_process(-1);
   }
 }
 
@@ -62,15 +62,20 @@ void exit(struct intr_frame *f)
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   int new_status = arg_list[0];
+  exit_process(new_status);
+}
+
+void exit_process(int status)
+{
   struct thread *current_thread = thread_current();
   // if (is_thread_alive(current_thread->parent))
   // {
-  //   current_thread->cp->status = new_status;
+  //   current_thread->cp->status = status;
   // }
-  printf("%s: exit(%d)\n", current_thread->name, new_status);
+  printf("%s: exit(%d)\n", current_thread->name, status);
   thread_exit();
-
 }
+
 int wait(struct intr_frame *f)
 {
   int arg_list[3];
@@ -132,9 +137,9 @@ int usraddr_to_keraddr_ptr(const void *vaddr)
     void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
     if (!ptr)
     {
-      thread_exit();
+      exit_process(-1);
     }
     return (int)ptr;
   }
-  thread_exit();
+  exit_process(-1);
 }
