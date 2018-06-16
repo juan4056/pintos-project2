@@ -116,7 +116,9 @@ struct child_process_warpper {
   // struct lock wait_lock;
 };
 struct child_process_warpper *new_child_process(struct thread *t);
-struct child_process_warpper *get_child_process(int tid);
+struct child_process_warpper *get_child_process_warpper(int tid);
+void remove_child_process_warpper(struct child_process_warpper *warpper);
+void remove_child_process_list(void);
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -153,6 +155,6 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool is_thread_alive(int tid);
+bool is_thread_alive(int pid);
 
 #endif /* threads/thread.h */

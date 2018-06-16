@@ -229,7 +229,7 @@ struct child_process_warpper *new_child_process(struct thread *t)
   return child;
 }
 
-struct child_process_warpper *get_child_process(int tid)
+struct child_process_warpper *get_child_process_warpper(int tid)
 {
   struct thread *t = thread_current();
   struct list_elem *e;
@@ -244,6 +244,28 @@ struct child_process_warpper *get_child_process(int tid)
     }
   }
   return NULL;
+}
+
+void remove_child_process_warpper(struct child_process_warpper *warpper)
+{
+  list_remove(&warpper->elem);
+  free(warpper);
+}
+
+void remove_child_process_list(void)
+{
+  struct thread *t = thread_current();
+  struct list_elem *next, *e = list_begin(&t->child_list);
+
+  while (e != list_end(&t->child_list))
+  {
+    next = list_next(e);
+    struct child_process_warpper *warpper = list_entry(e, struct child_process_warpper,
+                                          elem);
+    list_remove(&warpper->elem);
+    free(warpper);
+    e = next;
+  }
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -308,6 +330,22 @@ thread_current (void)
   ASSERT (t->status == THREAD_RUNNING);
 
   return t;
+}
+
+bool is_thread_alive(int tid)
+{
+  struct list_elem *e;
+
+  for (e = list_begin(&all_list); e != list_end(&all_list);
+       e = list_next(e))
+  {
+    struct thread *t = list_entry(e, struct thread, allelem);
+    if (t->tid == tid)
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 /* Returns the running thread's tid. */
@@ -625,18 +663,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-bool is_thread_alive(int tid)
-{
-  struct list_elem *thread_elem;
-
-  for (thread_elem = list_begin(&all_list); thread_elem != list_end(&all_list);thread_elem = list_next(thread_elem))
-  {
-    struct thread *t = list_entry(thread_elem, struct thread, allelem);
-    if (t->tid == tid)
-    {
-      return true;
-    }
-  }
-  return false;
-}

@@ -64,14 +64,13 @@ start_process(void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load(file_name, &if_.eip, &if_.esp);
-
-  if (success)
+  if (success == true)
   {
     thread_current()->warpper->load = 1;
   }
   else
   {
-    thread_current()->warpper->load = 0;
+    thread_current()->warpper->load = -1;
   }
 
   /* If load failed, quit. */
@@ -103,15 +102,23 @@ start_process(void *file_name_)
    does nothing. */
 int process_wait(tid_t child_tid UNUSED)
 {
-  for (int i = 0; i < 1000; i++)
+  struct child_process_warpper *warpper = get_child_process_warpper(child_tid);
+  if (!warpper)
   {
-    for (int j = 0; j < 1000; j++)
-    {
-      int k = 0;
-      k++;
-    }
+    return -1;
   }
-  return -1;
+  if (warpper->wait)
+  {
+    return -1;
+  }
+  warpper->wait = true;
+  while (!warpper->exit)
+  {
+    barrier();
+  }
+  int status = warpper->status;
+  remove_child_process_warpper(warpper);
+  return status;
 }
 
 struct file *process_get_file(int fd)
@@ -157,6 +164,15 @@ void process_exit(void)
 {
   struct thread *cur = thread_current();
   uint32_t *pd;
+
+  // Free child list
+  remove_child_process_list();
+
+  // Set exit value to true in case killed by the kernel
+  if (is_thread_alive(cur->parent->tid))
+  {
+    cur->warpper->exit = true;
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

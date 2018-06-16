@@ -30,7 +30,9 @@ void syscall_init(void)
 static void
 syscall_handler(struct intr_frame *f UNUSED)
 {
+  printf("-----System Call!\n");
   check_valid_ptr(f->esp);
+  printf("-----Pass Check\n");
   int option = *(int *)f->esp;
   switch (option)
   {
@@ -63,7 +65,7 @@ void exec(struct intr_frame *f)
   arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
   const char *cmd_line = (const char *)arg_list[0];
   tid_t tid = process_execute(cmd_line);
-  struct child_process_warpper *warpper = get_child_process(tid);
+  struct child_process_warpper *warpper = get_child_process_warpper(tid);
   ASSERT(warpper);
   while (warpper->load == 0)
   {
@@ -94,11 +96,14 @@ void exit(struct intr_frame *f)
 
 void exit_process(int status)
 {
+  if(status == -1){
+    printf("-----Kill by system!\n");
+  }
   struct thread *current_thread = thread_current();
-  // if (is_thread_alive(current_thread->parent))
-  // {
-  //   current_thread->cp->status = status;
-  // }
+  if (is_thread_alive(current_thread->parent->tid))
+  {
+    current_thread->warpper->status = status;
+  }
   printf("%s: exit(%d)\n", current_thread->name, status);
   thread_exit();
 }
@@ -165,7 +170,7 @@ int usraddr_to_keraddr_ptr(const void *vaddr)
 
 void check_valid_ptr(const void *vaddr)
 {
-  if (!is_user_vaddr(vaddr) || vaddr < ((void *)0x08048000))
+  if ((is_user_vaddr(vaddr) == false) || (vaddr < ((void *)0x08048000)))
   {
     exit_process(-1);
   }
