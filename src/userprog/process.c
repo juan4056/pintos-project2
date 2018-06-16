@@ -39,9 +39,7 @@ tid_t process_execute(const char *file_name)
   strlcpy(fn_copy, file_name, PGSIZE);
 
   char *ptr;
-  // printf("----%s---\n", file_name);
   file_name = strtok_r((char *)file_name, " ", &ptr);
-  // printf("----%s---\n", file_name);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -545,8 +543,8 @@ setup_stack(void **esp, int argc, char **argv)
 
       // Push argv, argc, return address to stack
       char *argv_addr = *esp;
-      *esp = *esp - sizeof(char **);
-      memcpy(*esp, &argv_addr, sizeof(char **));
+      *esp = *esp - sizeof(char *);
+      memcpy(*esp, &argv_addr, sizeof(char *));
       *esp = *esp - sizeof(int);
       memcpy(*esp, &argc, sizeof(int));
       *esp = *esp - sizeof(void *);
