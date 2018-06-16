@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #include "devices/shutdown.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
@@ -19,6 +20,7 @@ void is_buffer_valid(void *buffer, unsigned size);
 int usraddr_to_keraddr_ptr(const void *vaddr);
 void check_valid_ptr(const void *vaddr);
 void exit_process(int status);
+void exec(struct intr_frame *f);
 
 void syscall_init(void)
 {
@@ -44,6 +46,9 @@ syscall_handler(struct intr_frame *f UNUSED)
   case SYS_WRITE:
     write(f);
     break;
+  case SYS_EXEC:
+    exec(f);
+    break;
   default:
     printf("system call!\n");
     exit_process(-1);
@@ -55,22 +60,22 @@ void exec(struct intr_frame *f)
   // Exit current thread
   int arg_list[3];
   extract_argument(f, arg_list, 1);
-  arg_list[0] = usraddr_to_keraddr_ptr(arg_list[0]);
-
-  pid_t pid = process_execute(cmd_line);
-  struct child_process *cp = get_child_process(pid);
-  ASSERT(cp);
-  while (cp->load == 0)
+  arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
+  const char *cmd_line = (const char *)arg_list[0];
+  tid_t tid = process_execute(cmd_line);
+  struct child_process_warpper *warpper = get_child_process(tid);
+  ASSERT(warpper);
+  while (warpper->load == 0)
   {
     // Not Loaded
     barrier();
   }
-  if (cp->load == 2)
+  if (warpper->load == -1)
   {
     // Loaded failed
-    pid = -1;
+    tid = -1;
   }
-  f->eax = pid;
+  f->eax = tid;
 }
 
 void halt(void)
@@ -102,8 +107,8 @@ int wait(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 1);
-  int pid = arg_list[0];
-  f->eax = process_wait(pid);
+  int tid = arg_list[0];
+  f->eax = process_wait(tid);
   return 1;
 }
 

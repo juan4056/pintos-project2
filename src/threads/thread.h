@@ -96,11 +96,27 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct list child_list;
+    struct thread *parent;
+    struct child_process_warpper *warpper;
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+struct child_process_warpper {
+  int tid;
+  int load;
+  bool wait;
+  bool exit;
+  int status;
+  struct thread *process_ptr;
+  struct list_elem elem;
+  // struct lock wait_lock;
+};
+struct child_process_warpper *new_child_process(struct thread *t);
+struct child_process_warpper *get_child_process(int tid);
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -137,6 +153,6 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool is_thread_alive(int pid);
+bool is_thread_alive(int tid);
 
 #endif /* threads/thread.h */

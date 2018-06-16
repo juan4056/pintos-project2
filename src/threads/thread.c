@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <random.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
@@ -204,10 +205,45 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  // Add child process to child list
+  t->parent = thread_current();
+  struct child_process_warpper *warpper = new_child_process(t);
+  t->warpper = warpper;
+
   /* Add to run queue. */
   thread_unblock (t);
-
   return tid;
+}
+
+struct child_process_warpper *new_child_process(struct thread *t)
+{
+  struct child_process_warpper *child = malloc(sizeof(struct child_process_warpper));
+  child->tid = t->tid;
+  child->load = 0;
+  child->wait = false;
+  child->exit = false;
+  child->process_ptr = t;
+  list_push_back(&thread_current()->child_list,
+                 &child->elem);
+  // lock_init(&child->wait_lock);
+  return child;
+}
+
+struct child_process_warpper *get_child_process(int tid)
+{
+  struct thread *t = thread_current();
+  struct list_elem *e;
+
+  for (e = list_begin(&t->child_list); e != list_end(&t->child_list);
+       e = list_next(e))
+  {
+    struct child_process_warpper *warpper = list_entry(e, struct child_process_warpper, elem);
+    if (tid == warpper->tid)
+    {
+      return warpper;
+    }
+  }
+  return NULL;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -469,6 +505,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&(t->child_list));
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -589,14 +626,14 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-bool is_thread_alive(int pid)
+bool is_thread_alive(int tid)
 {
   struct list_elem *thread_elem;
 
   for (thread_elem = list_begin(&all_list); thread_elem != list_end(&all_list);thread_elem = list_next(thread_elem))
   {
     struct thread *t = list_entry(thread_elem, struct thread, allelem);
-    if (t->tid == pid)
+    if (t->tid == tid)
     {
       return true;
     }

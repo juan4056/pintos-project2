@@ -22,7 +22,6 @@
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -66,6 +65,15 @@ start_process(void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load(file_name, &if_.eip, &if_.esp);
 
+  if (success)
+  {
+    thread_current()->warpper->load = 1;
+  }
+  else
+  {
+    thread_current()->warpper->load = 0;
+  }
+
   /* If load failed, quit. */
   palloc_free_page(file_name);
   if (!success)
@@ -95,8 +103,10 @@ start_process(void *file_name_)
    does nothing. */
 int process_wait(tid_t child_tid UNUSED)
 {
-  for(int i=0; i < 1000; i++){
-    for(int j = 0; j < 1000; j++){
+  for (int i = 0; i < 1000; i++)
+  {
+    for (int j = 0; j < 1000; j++)
+    {
       int k = 0;
       k++;
     }
@@ -524,7 +534,7 @@ setup_stack(void **esp, int argc, char **argv)
         addr_stack[i] = *esp;
         memcpy(*esp, argv[i], strlen(argv[i]) + 1);
       }
-      
+
       // Word-aligned
       addr_stack[argc] = 0;
       int j = (size_t)*esp % 4;
