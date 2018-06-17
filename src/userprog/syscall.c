@@ -196,10 +196,8 @@ void sys_write(struct intr_frame *f)
   arg_list[1] = usraddr_to_keraddr_ptr((const void *)arg_list[1]);
   void *buffer = (void *)arg_list[1];
   unsigned size = arg_list[2];
-  //printf("----ptr checked!\n");
   if (fd == STDOUT_FILENO)
   {
-    //printf("----std out!\n");
     putbuf(buffer, size);
     f->eax = size;
     return;
@@ -214,7 +212,6 @@ void sys_write(struct intr_frame *f)
     return;
   }
   if(warpper->exec_file == 1){
-    // file_deny_write(file_ptr);
     lock_release(&filesys_lock);
     f->eax = 0;
     return;
@@ -349,8 +346,6 @@ void is_buffer_valid(void *buffer, unsigned size)
 
 int usraddr_to_keraddr_ptr(const void *vaddr)
 {
-  // TO DO: Need to check if all bytes within range are correct
-  // for strings + buffers
   check_valid_ptr(vaddr);
   void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
   if (!ptr)

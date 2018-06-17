@@ -96,10 +96,10 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct list child_list;
-    struct thread *parent;
-    struct child_process_warpper *warpper;
-    struct list file_list;
+    struct list child_list; // Child list
+    struct thread *parent; // parent process pointer
+    struct child_process_warpper *warpper; // point to its child_process_warpper
+    struct list file_list; // Opened file list
     int fd;
 #endif
 
@@ -108,14 +108,13 @@ struct thread
   };
 
 struct child_process_warpper {
-  int tid;
-  int load;
-  bool wait;
-  bool exit;
-  int status;
-  struct thread *process_ptr;
-  struct list_elem elem;
-  // struct lock wait_lock;
+  int tid; // Thread id
+  int load; // Whether load the excutable file
+  bool wait; // Parent waiting status
+  bool exit; // Whether exit or not
+  int status; // Store the status
+  struct thread *process_ptr; // Pointer to process
+  struct list_elem elem; // Used in list
 };
 struct child_process_warpper *new_child_process(struct thread *t);
 struct child_process_warpper *get_child_process_warpper(int tid);
@@ -124,9 +123,9 @@ void remove_child_process_list(void);
 
 struct file_warpper
 {
-  struct file *file;
+  struct file *file; // Pointer to file
   int fd;
-  int exec_file;
+  int exec_file; // Whether this file is descritable
   struct list_elem elem;
 };
 int add_file_to_process(struct file *file_ptr);
