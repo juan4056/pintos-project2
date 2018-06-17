@@ -126,10 +126,12 @@ struct file_warpper
 {
   struct file *file;
   int fd;
+  int exec_file;
   struct list_elem elem;
 };
 int add_file_to_process(struct file *file_ptr);
 void close_process_file(int fd);
+struct file_warpper *get_file_warpper(int fd);
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

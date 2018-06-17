@@ -675,29 +675,13 @@ int add_file_to_process(struct file *file_ptr)
 {
   struct file_warpper *warpper = malloc(sizeof(struct file_warpper));
   warpper->file = file_ptr;
+  warpper->exec_file = 0;
   struct thread *cur_thread = thread_current();
   warpper->fd = cur_thread->fd;
   cur_thread->fd = cur_thread->fd + 1;
   list_push_back(&cur_thread->file_list, &warpper->elem);
   return warpper->fd;
 }
-
-// void close_all_file()
-// {
-//   struct thread *cur_thread = thread_current();
-//   struct list_elem *next = list_begin(&cur_thread->file_list);
-//   struct list_elem *e = list_begin(&cur_thread->file_list);
-
-//   while (e != list_end(&cur_thread->file_list))
-//   {
-//     next = list_next(e);
-//     struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
-//     file_close(warpper->file);
-//     list_remove(&warpper->elem);
-//     free(warpper);
-//     e = next;
-//   }
-// }
 
 void close_process_file(int fd)
 {
@@ -720,6 +704,23 @@ void close_process_file(int fd)
     }
     e = next;
   }
+}
+
+struct file_warpper *get_file_warpper(int fd)
+{
+  struct thread *cur_thread = thread_current();
+  struct list_elem *e;
+
+  for (e = list_begin(&cur_thread->file_list); e != list_end(&cur_thread->file_list);
+       e = list_next(e))
+  {
+    struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
+    if (fd == warpper->fd)
+    {
+      return warpper;
+    }
+  }
+  return NULL;
 }
 
 /* Offset of `stack' member within `struct thread'.

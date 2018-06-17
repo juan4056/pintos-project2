@@ -205,20 +205,23 @@ void sys_write(struct intr_frame *f)
     return;
   }
   lock_acquire(&filesys_lock);
-  //printf("----get lock!\n");
-  struct file *file_ptr = process_get_file(fd);
+  struct file_warpper *warpper = get_file_warpper(fd);
+  struct file *file_ptr = warpper->file;
   if (!file_ptr)
   {
-    //printf("----Failed find file!\n");
     lock_release(&filesys_lock);
     f->eax = -1;
     return;
   }
+  if(warpper->exec_file == 1){
+    // file_deny_write(file_ptr);
+    lock_release(&filesys_lock);
+    f->eax = 0;
+    return;
+  }
   off_t bytes = file_write(file_ptr, buffer, size);
-  //printf("----Write to file!\n");
   lock_release(&filesys_lock);
   f->eax = bytes;
-  //printf("----Write %d\n", bytes);
 }
 
 void sys_read(struct intr_frame *f)
@@ -241,7 +244,8 @@ void sys_read(struct intr_frame *f)
     return;
   }
   lock_acquire(&filesys_lock);
-  struct file *file_ptr = process_get_file(fd);
+  struct file_warpper *warpper = get_file_warpper(fd);
+  struct file *file_ptr = warpper->file;
   if (!file_ptr)
   {
     lock_release(&filesys_lock);
@@ -259,7 +263,8 @@ void sys_file_size(struct intr_frame *f)
   extract_argument(f, arg_list, 1);
   int fd = arg_list[0];
   lock_acquire(&filesys_lock);
-  struct file *file_ptr = process_get_file(fd);
+  struct file_warpper *warpper = get_file_warpper(fd);
+  struct file *file_ptr = warpper->file;
   if (!file_ptr)
   {
     lock_release(&filesys_lock);
@@ -278,7 +283,8 @@ void sys_seek(struct intr_frame *f)
   int fd = arg_list[0];
   unsigned posi = arg_list[1];
   lock_acquire(&filesys_lock);
-  struct file *file_ptr = process_get_file(fd);
+  struct file_warpper *warpper = get_file_warpper(fd);
+  struct file *file_ptr = warpper->file;
   if (!file_ptr)
   {
     lock_release(&filesys_lock);
@@ -294,7 +300,8 @@ void sys_tell(struct intr_frame *f)
   extract_argument(f, arg_list, 1);
   int fd = arg_list[0];
   lock_acquire(&filesys_lock);
-  struct file *file_ptr = process_get_file(fd);
+  struct file_warpper *warpper = get_file_warpper(fd);
+  struct file *file_ptr = warpper->file;
   if (!file_ptr)
   {
     lock_release(&filesys_lock);

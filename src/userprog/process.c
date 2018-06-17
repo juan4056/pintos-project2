@@ -121,49 +121,15 @@ int process_wait(tid_t child_tid UNUSED)
   return status;
 }
 
-struct file *process_get_file(int fd)
-{
-  struct thread *cur_thread = thread_current();
-  struct list_elem *e;
-
-  for (e = list_begin(&cur_thread->file_list); e != list_end(&cur_thread->file_list);
-       e = list_next(e))
-  {
-    struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
-    if (fd == warpper->fd)
-    {
-      return warpper->file;
-    }
-  }
-  return NULL;
-}
-
-// struct lock filesys_lock;
-
-// int process_write(int fd, const void *buffer, unsigned size)
-// {
-//   if (fd == STDOUT_FILENO)
-//   {
-//     putbuf(buffer, size);
-//     return size;
-//   }
-//   lock_acquire(&filesys_lock);
-//   struct file *f = process_get_file(fd);
-//   if (!f)
-//   {
-//     lock_release(&filesys_lock);
-//     return -1;
-//   }
-//   int bytes = file_write(f, buffer, size);
-//   lock_release(&filesys_lock);
-//   return bytes;
-// }
 
 /* Free the current process's resources. */
 void process_exit(void)
 {
   struct thread *cur = thread_current();
   uint32_t *pd;
+
+  // Close file list
+  close_process_file(-1);
 
   // Free child list
   remove_child_process_list();
@@ -331,7 +297,6 @@ bool load(const char *file_name, void (**eip)(void), void **esp)
   /* Open executable file. */
   file_name = argv[0];
   file = filesys_open(file_name);
-
   if (file == NULL)
   {
     printf("load: %s: open failed\n", file_name);
