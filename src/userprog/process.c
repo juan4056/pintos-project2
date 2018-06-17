@@ -138,26 +138,26 @@ struct file *process_get_file(int fd)
   return NULL;
 }
 
-struct lock filesys_lock;
+// struct lock filesys_lock;
 
-int process_write(int fd, const void *buffer, unsigned size)
-{
-  if (fd == STDOUT_FILENO)
-  {
-    putbuf(buffer, size);
-    return size;
-  }
-  lock_acquire(&filesys_lock);
-  struct file *f = process_get_file(fd);
-  if (!f)
-  {
-    lock_release(&filesys_lock);
-    return -1;
-  }
-  int bytes = file_write(f, buffer, size);
-  lock_release(&filesys_lock);
-  return bytes;
-}
+// int process_write(int fd, const void *buffer, unsigned size)
+// {
+//   if (fd == STDOUT_FILENO)
+//   {
+//     putbuf(buffer, size);
+//     return size;
+//   }
+//   lock_acquire(&filesys_lock);
+//   struct file *f = process_get_file(fd);
+//   if (!f)
+//   {
+//     lock_release(&filesys_lock);
+//     return -1;
+//   }
+//   int bytes = file_write(f, buffer, size);
+//   lock_release(&filesys_lock);
+//   return bytes;
+// }
 
 /* Free the current process's resources. */
 void process_exit(void)

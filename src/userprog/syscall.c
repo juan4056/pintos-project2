@@ -15,8 +15,8 @@
 void syscall_init(void);
 static void syscall_handler(struct intr_frame *);
 void halt(void);
-void exit(struct intr_frame *f);
-int wait(struct intr_frame *f);
+void sys_exit(struct intr_frame *f);
+void sys_wait(struct intr_frame *f);
 void write(struct intr_frame *f);
 void extract_argument(struct intr_frame *f, int *arg_list, int num_of_arguments);
 void is_buffer_valid(void *buffer, unsigned size);
@@ -51,10 +51,10 @@ syscall_handler(struct intr_frame *f UNUSED)
     halt();
     break;
   case SYS_EXIT:
-    exit(f);
+    sys_exit(f);
     break;
   case SYS_WAIT:
-    wait(f);
+    sys_wait(f);
     break;
   case SYS_CREATE:
     create(f);
@@ -120,7 +120,7 @@ void halt(void)
   shutdown();
 }
 
-void exit(struct intr_frame *f)
+void sys_exit(struct intr_frame *f)
 {
   // Exit current thread
   int arg_list[3];
@@ -140,13 +140,12 @@ void exit_process(int status)
   thread_exit();
 }
 
-int wait(struct intr_frame *f)
+void sys_wait(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   int tid = arg_list[0];
   f->eax = process_wait(tid);
-  return 1;
 }
 
 void create(struct intr_frame *f)
@@ -194,10 +193,27 @@ void write(struct intr_frame *f)
   int arg_list[3];
   extract_argument(f, arg_list, 3);
   int fd = arg_list[0];
+  is_buffer_valid((void *)arg_list[1], (unsigned)arg_list[2]);
+  arg_list[1] = usraddr_to_keraddr_ptr((const void *)arg_list[1]);
   void *buffer = (void *)arg_list[1];
   unsigned size = arg_list[2];
-  is_buffer_valid(buffer, size);
-  f->eax = process_write(fd, buffer, size);
+  if (fd == STDOUT_FILENO)
+  {
+    putbuf(buffer, size);
+    f->eax = size;
+    return;
+  }
+  lock_acquire(&filesys_lock);
+  struct file *file_ptr = process_get_file(fd);
+  if (!file_ptr)
+  {
+    lock_release(&filesys_lock);
+    f->eax = -1;
+    return;
+  }
+  int bytes = file_write(file_ptr, buffer, size);
+  lock_release(&filesys_lock);
+  f->eax = bytes;
 }
 
 void read(struct intr_frame *f)
