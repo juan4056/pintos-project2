@@ -29,6 +29,10 @@ void create(struct intr_frame *f);
 void open(struct intr_frame *f);
 void close(struct intr_frame *f);
 void read(struct intr_frame *f);
+void filesize(struct intr_frame *f);
+void sys_seek(struct intr_frame *f);
+void sys_tell(struct intr_frame *f);
+void sys_remove(struct intr_frame *f);
 
 void syscall_init(void)
 {
@@ -67,8 +71,20 @@ syscall_handler(struct intr_frame *f UNUSED)
   case SYS_READ:
     read(f);
     break;
+  case SYS_FILESIZE:
+    filesize(f);
+    break;
+  case SYS_SEEK:
+    sys_seek(f);
+    break;
+  case SYS_TELL:
+    sys_tell(f);
+    break;
   case SYS_EXEC:
     exec(f);
+    break;
+  case SYS_REMOVE:
+    sys_remove(f);
     break;
   default:
     printf("system call!\n");
@@ -150,7 +166,7 @@ void open(struct intr_frame *f)
   extract_argument(f, arg_list, 1);
   arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
   lock_acquire(&filesys_lock);
-  const char* file_name = (const char *)arg_list[0];
+  const char *file_name = (const char *)arg_list[0];
   struct file *file_ptr = filesys_open(file_name);
   if (!file_ptr)
   {
@@ -214,6 +230,70 @@ void read(struct intr_frame *f)
   int bytes = file_read(file_ptr, buffer, size);
   lock_release(&filesys_lock);
   f->eax = bytes;
+}
+
+void filesize(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 1);
+  int fd = arg_list[0];
+  lock_acquire(&filesys_lock);
+  struct file *file_ptr = process_get_file(fd);
+  if (!file_ptr)
+  {
+    lock_release(&filesys_lock);
+    f->eax = -1;
+    return;
+  }
+  int size = file_length(file_ptr);
+  lock_release(&filesys_lock);
+  f->eax = size;
+}
+
+void sys_seek(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 2);
+  int fd = arg_list[0];
+  unsigned posi = arg_list[1];
+  lock_acquire(&filesys_lock);
+  struct file *file_ptr = process_get_file(fd);
+  if (!file_ptr)
+  {
+    lock_release(&filesys_lock);
+    return;
+  }
+  file_seek(file_ptr, posi);
+  lock_release(&filesys_lock);
+}
+
+void sys_tell(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 1);
+  int fd = arg_list[0];
+  lock_acquire(&filesys_lock);
+  struct file *file_ptr = process_get_file(fd);
+  if (!file_ptr)
+  {
+    lock_release(&filesys_lock);
+    f->eax = -1;
+  }
+  off_t offset = file_tell(file_ptr);
+  lock_release(&filesys_lock);
+  f->eax = offset;
+}
+
+void sys_remove(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 1);
+  arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
+  const char *file_name = (const char *)arg_list[0];
+  lock_acquire(&filesys_lock);
+  bool success = filesys_remove(file_name);
+  lock_release(&filesys_lock);
+  f->eax = success;
 }
 
 void extract_argument(struct intr_frame *f, int *arg_list, int num_of_arguments)
