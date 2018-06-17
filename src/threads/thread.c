@@ -12,6 +12,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -218,6 +219,12 @@ thread_create (const char *name, int priority,
 struct child_process_warpper *new_child_process(struct thread *t)
 {
   struct child_process_warpper *child = malloc(sizeof(struct child_process_warpper));
+  // struct child_process_warpper *child;
+  /* Allocate child_process_warpper. */
+  // child = palloc_get_page (PAL_ZERO);
+  // if (child == NULL){
+  //   return TID_ERROR;
+  // }
   child->tid = t->tid;
   child->load = 0;
   child->wait = false;
@@ -544,6 +551,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_init(&(t->child_list));
+  list_init(&(t->file_list));
+  t->fd = 2;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -658,6 +667,59 @@ allocate_tid (void)
   lock_release (&tid_lock);
 
   return tid;
+}
+
+// Related with file system
+// Add file to process file list
+int add_file_to_process(struct file *file_ptr)
+{
+  struct file_warpper *warpper = malloc(sizeof(struct file_warpper));
+  warpper->file = file_ptr;
+  struct thread *cur_thread = thread_current();
+  warpper->fd = cur_thread->fd;
+  cur_thread->fd = cur_thread->fd + 1;
+  list_push_back(&cur_thread->file_list, &warpper->elem);
+  return warpper->fd;
+}
+
+// void close_all_file()
+// {
+//   struct thread *cur_thread = thread_current();
+//   struct list_elem *next = list_begin(&cur_thread->file_list);
+//   struct list_elem *e = list_begin(&cur_thread->file_list);
+
+//   while (e != list_end(&cur_thread->file_list))
+//   {
+//     next = list_next(e);
+//     struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
+//     file_close(warpper->file);
+//     list_remove(&warpper->elem);
+//     free(warpper);
+//     e = next;
+//   }
+// }
+
+void close_process_file(int fd)
+{
+  struct thread *cur_thread = thread_current();
+  struct list_elem *e = list_begin(&cur_thread->file_list);
+  struct list_elem *next = list_begin(&cur_thread->file_list);
+
+  while (e != list_end(&cur_thread->file_list))
+  {
+    next = list_next(e);
+    struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
+    if (fd == warpper->fd || fd == -1)
+    {
+      file_close(warpper->file);
+      list_remove(&warpper->elem);
+      free(warpper);
+      if(fd != -1){
+        return;
+      }
+    }
+    e = next;
+  }
 }
 
 /* Offset of `stack' member within `struct thread'.

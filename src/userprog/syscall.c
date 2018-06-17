@@ -5,34 +5,41 @@
 #include "threads/thread.h"
 #include "threads/synch.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 void syscall_init(void);
 static void syscall_handler(struct intr_frame *);
 void halt(void);
 void exit(struct intr_frame *f);
 int wait(struct intr_frame *f);
-int write(struct intr_frame *f);
+void write(struct intr_frame *f);
 void extract_argument(struct intr_frame *f, int *arg_list, int num_of_arguments);
 void is_buffer_valid(void *buffer, unsigned size);
 int usraddr_to_keraddr_ptr(const void *vaddr);
 void check_valid_ptr(const void *vaddr);
 void exit_process(int status);
 void exec(struct intr_frame *f);
+struct lock filesys_lock;
+void create(struct intr_frame *f);
+void open(struct intr_frame *f);
+void close(struct intr_frame *f);
+void read(struct intr_frame *f);
 
 void syscall_init(void)
 {
+  lock_init(&filesys_lock);
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
 static void
 syscall_handler(struct intr_frame *f UNUSED)
 {
-  printf("-----System Call!\n");
   check_valid_ptr(f->esp);
-  printf("-----Pass Check\n");
   int option = *(int *)f->esp;
   switch (option)
   {
@@ -45,8 +52,20 @@ syscall_handler(struct intr_frame *f UNUSED)
   case SYS_WAIT:
     wait(f);
     break;
+  case SYS_CREATE:
+    create(f);
+    break;
+  case SYS_OPEN:
+    open(f);
+    break;
+  case SYS_CLOSE:
+    close(f);
+    break;
   case SYS_WRITE:
     write(f);
+    break;
+  case SYS_READ:
+    read(f);
     break;
   case SYS_EXEC:
     exec(f);
@@ -96,9 +115,6 @@ void exit(struct intr_frame *f)
 
 void exit_process(int status)
 {
-  if(status == -1){
-    printf("-----Kill by system!\n");
-  }
   struct thread *current_thread = thread_current();
   if (is_thread_alive(current_thread->parent->tid))
   {
@@ -117,19 +133,87 @@ int wait(struct intr_frame *f)
   return 1;
 }
 
-int write(struct intr_frame *f)
+void create(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 2);
+  arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
+  lock_acquire(&filesys_lock);
+  bool success = filesys_create((const char *)arg_list[0], (unsigned)arg_list[1]);
+  lock_release(&filesys_lock);
+  f->eax = success;
+}
+
+void open(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 1);
+  arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
+  lock_acquire(&filesys_lock);
+  const char* file_name = (const char *)arg_list[0];
+  struct file *file_ptr = filesys_open(file_name);
+  if (!file_ptr)
+  {
+    lock_release(&filesys_lock);
+    f->eax = -1;
+    return;
+  }
+  int fd = add_file_to_process(file_ptr);
+  lock_release(&filesys_lock);
+  f->eax = fd;
+}
+
+void close(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 1);
+  int fd = arg_list[0];
+  lock_acquire(&filesys_lock);
+  close_process_file(fd);
+  lock_release(&filesys_lock);
+}
+
+void write(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 3);
   int fd = arg_list[0];
   void *buffer = (void *)arg_list[1];
   unsigned size = arg_list[2];
-
   is_buffer_valid(buffer, size);
-  // arg[1] = usraddr_to_keraddr_ptr((const void *)arg[1]);
-
   f->eax = process_write(fd, buffer, size);
-  return 0;
+}
+
+void read(struct intr_frame *f)
+{
+  int arg_list[3];
+  extract_argument(f, arg_list, 3);
+  int fd = arg_list[0];
+  void *buffer = (void *)arg_list[1];
+  unsigned size = arg_list[2];
+  is_buffer_valid(buffer, size);
+  if (fd == STDIN_FILENO)
+  {
+    unsigned i;
+    uint8_t *local_buffer = (uint8_t *)buffer;
+    for (i = 0; i < size; i++)
+    {
+      local_buffer[i] = input_getc();
+    }
+    f->eax = size;
+    return;
+  }
+  lock_acquire(&filesys_lock);
+  struct file *file_ptr = process_get_file(fd);
+  if (!file_ptr)
+  {
+    lock_release(&filesys_lock);
+    f->eax = -1;
+    return;
+  }
+  int bytes = file_read(file_ptr, buffer, size);
+  lock_release(&filesys_lock);
+  f->eax = bytes;
 }
 
 void extract_argument(struct intr_frame *f, int *arg_list, int num_of_arguments)
@@ -171,6 +255,11 @@ int usraddr_to_keraddr_ptr(const void *vaddr)
 void check_valid_ptr(const void *vaddr)
 {
   if ((is_user_vaddr(vaddr) == false) || (vaddr < ((void *)0x08048000)))
+  {
+    exit_process(-1);
+  }
+  void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
+  if (!ptr)
   {
     exit_process(-1);
   }

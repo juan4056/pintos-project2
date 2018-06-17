@@ -99,6 +99,8 @@ struct thread
     struct list child_list;
     struct thread *parent;
     struct child_process_warpper *warpper;
+    struct list file_list;
+    int fd;
 #endif
 
     /* Owned by thread.c. */
@@ -119,6 +121,15 @@ struct child_process_warpper *new_child_process(struct thread *t);
 struct child_process_warpper *get_child_process_warpper(int tid);
 void remove_child_process_warpper(struct child_process_warpper *warpper);
 void remove_child_process_list(void);
+
+struct file_warpper
+{
+  struct file *file;
+  int fd;
+  struct list_elem elem;
+};
+int add_file_to_process(struct file *file_ptr);
+void close_process_file(int fd);
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
