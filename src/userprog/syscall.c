@@ -17,19 +17,18 @@ static void syscall_handler(struct intr_frame *);
 void halt(void);
 void sys_exit(struct intr_frame *f);
 void sys_wait(struct intr_frame *f);
-void write(struct intr_frame *f);
+void sys_write(struct intr_frame *f);
 void extract_argument(struct intr_frame *f, int *arg_list, int num_of_arguments);
 void is_buffer_valid(void *buffer, unsigned size);
 int usraddr_to_keraddr_ptr(const void *vaddr);
 void check_valid_ptr(const void *vaddr);
-void exit_process(int status);
-void exec(struct intr_frame *f);
+void sys_exec(struct intr_frame *f);
 struct lock filesys_lock;
-void create(struct intr_frame *f);
-void open(struct intr_frame *f);
-void close(struct intr_frame *f);
-void read(struct intr_frame *f);
-void filesize(struct intr_frame *f);
+void sys_create(struct intr_frame *f);
+void sys_open(struct intr_frame *f);
+void sys_close(struct intr_frame *f);
+void sys_read(struct intr_frame *f);
+void sys_file_size(struct intr_frame *f);
 void sys_seek(struct intr_frame *f);
 void sys_tell(struct intr_frame *f);
 void sys_remove(struct intr_frame *f);
@@ -57,22 +56,22 @@ syscall_handler(struct intr_frame *f UNUSED)
     sys_wait(f);
     break;
   case SYS_CREATE:
-    create(f);
+    sys_create(f);
     break;
   case SYS_OPEN:
-    open(f);
+    sys_open(f);
     break;
   case SYS_CLOSE:
-    close(f);
+    sys_close(f);
     break;
   case SYS_WRITE:
-    write(f);
+    sys_write(f);
     break;
   case SYS_READ:
-    read(f);
+    sys_read(f);
     break;
   case SYS_FILESIZE:
-    filesize(f);
+    sys_file_size(f);
     break;
   case SYS_SEEK:
     sys_seek(f);
@@ -81,7 +80,7 @@ syscall_handler(struct intr_frame *f UNUSED)
     sys_tell(f);
     break;
   case SYS_EXEC:
-    exec(f);
+    sys_exec(f);
     break;
   case SYS_REMOVE:
     sys_remove(f);
@@ -92,7 +91,7 @@ syscall_handler(struct intr_frame *f UNUSED)
   }
 }
 
-void exec(struct intr_frame *f)
+void sys_exec(struct intr_frame *f)
 {
   // Exit current thread
   int arg_list[3];
@@ -148,7 +147,7 @@ void sys_wait(struct intr_frame *f)
   f->eax = process_wait(tid);
 }
 
-void create(struct intr_frame *f)
+void sys_create(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 2);
@@ -159,7 +158,7 @@ void create(struct intr_frame *f)
   f->eax = success;
 }
 
-void open(struct intr_frame *f)
+void sys_open(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 1);
@@ -178,7 +177,7 @@ void open(struct intr_frame *f)
   f->eax = fd;
 }
 
-void close(struct intr_frame *f)
+void sys_close(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 1);
@@ -188,7 +187,7 @@ void close(struct intr_frame *f)
   lock_release(&filesys_lock);
 }
 
-void write(struct intr_frame *f)
+void sys_write(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 3);
@@ -197,26 +196,32 @@ void write(struct intr_frame *f)
   arg_list[1] = usraddr_to_keraddr_ptr((const void *)arg_list[1]);
   void *buffer = (void *)arg_list[1];
   unsigned size = arg_list[2];
+  //printf("----ptr checked!\n");
   if (fd == STDOUT_FILENO)
   {
+    //printf("----std out!\n");
     putbuf(buffer, size);
     f->eax = size;
     return;
   }
   lock_acquire(&filesys_lock);
+  //printf("----get lock!\n");
   struct file *file_ptr = process_get_file(fd);
   if (!file_ptr)
   {
+    //printf("----Failed find file!\n");
     lock_release(&filesys_lock);
     f->eax = -1;
     return;
   }
-  int bytes = file_write(file_ptr, buffer, size);
+  off_t bytes = file_write(file_ptr, buffer, size);
+  //printf("----Write to file!\n");
   lock_release(&filesys_lock);
   f->eax = bytes;
+  //printf("----Write %d\n", bytes);
 }
 
-void read(struct intr_frame *f)
+void sys_read(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 3);
@@ -248,7 +253,7 @@ void read(struct intr_frame *f)
   f->eax = bytes;
 }
 
-void filesize(struct intr_frame *f)
+void sys_file_size(struct intr_frame *f)
 {
   int arg_list[3];
   extract_argument(f, arg_list, 1);
@@ -351,11 +356,6 @@ int usraddr_to_keraddr_ptr(const void *vaddr)
 void check_valid_ptr(const void *vaddr)
 {
   if ((is_user_vaddr(vaddr) == false) || (vaddr < ((void *)0x08048000)))
-  {
-    exit_process(-1);
-  }
-  void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
-  if (!ptr)
   {
     exit_process(-1);
   }
