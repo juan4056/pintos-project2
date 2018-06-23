@@ -99,7 +99,9 @@ void sys_exec(struct intr_frame *f)
   extract_argument(f, arg_list, 1);
   arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
   const char *cmd_line = (const char *)arg_list[0];
+  // Execute the program
   tid_t tid = process_execute(cmd_line);
+  // Return the warpper of the child process
   struct child_process_warpper *warpper = get_child_process_warpper(tid);
   ASSERT(warpper);
   while (warpper->load == 0)
@@ -112,6 +114,7 @@ void sys_exec(struct intr_frame *f)
     // Loaded failed
     tid = -1;
   }
+  // Return tid to caller
   f->eax = tid;
 }
 
@@ -122,15 +125,17 @@ void halt(void)
 
 void sys_exit(struct intr_frame *f)
 {
-  // Exit current thread
+  // System call for exit current thread
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   int new_status = arg_list[0];
+  // Exit the process with the status
   exit_process(new_status);
 }
 
 void exit_process(int status)
 {
+  // Exit the current thread
   struct thread *current_thread = thread_current();
   if (is_thread_alive(current_thread->parent->tid))
   {
@@ -142,6 +147,7 @@ void exit_process(int status)
 
 void sys_wait(struct intr_frame *f)
 {
+  // wait for child
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   int tid = arg_list[0];
@@ -150,6 +156,7 @@ void sys_wait(struct intr_frame *f)
 
 void sys_create(struct intr_frame *f)
 {
+  // create a file
   int arg_list[3];
   extract_argument(f, arg_list, 2);
   arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
@@ -161,17 +168,22 @@ void sys_create(struct intr_frame *f)
 
 void sys_open(struct intr_frame *f)
 {
+  // Open a file
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   arg_list[0] = usraddr_to_keraddr_ptr((const void *)arg_list[0]);
   lock_acquire(&filesys_lock);
   const char *file_name = (const char *)arg_list[0];
   struct file *file_ptr = filesys_open(file_name);
-  if(strcmp(file_name, thread_current()->name) == 0){
+  // If the name is same as thread name
+  // Deny write
+  if (strcmp(file_name, thread_current()->name) == 0)
+  {
     file_deny_write(file_ptr);
   }
   if (!file_ptr)
   {
+    // Exit if file do not exist
     lock_release(&filesys_lock);
     f->eax = -1;
     return;
@@ -183,6 +195,7 @@ void sys_open(struct intr_frame *f)
 
 void sys_close(struct intr_frame *f)
 {
+  // Close a file
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   int fd = arg_list[0];
@@ -193,6 +206,7 @@ void sys_close(struct intr_frame *f)
 
 void sys_write(struct intr_frame *f)
 {
+  // Write to file
   int arg_list[3];
   extract_argument(f, arg_list, 3);
   int fd = arg_list[0];
@@ -202,6 +216,7 @@ void sys_write(struct intr_frame *f)
   unsigned size = arg_list[2];
   if (fd == STDOUT_FILENO)
   {
+    // Print the content to the terminal
     putbuf(buffer, size);
     f->eax = size;
     return;
@@ -215,16 +230,10 @@ void sys_write(struct intr_frame *f)
     f->eax = -1;
     return;
   }
-  if (warpper->exec_file == 1)
-  {
-    lock_release(&filesys_lock);
-    f->eax = 0;
-    return;
-  }
+  // Write to file
   off_t bytes = file_write(file_ptr, buffer, size);
   lock_release(&filesys_lock);
   f->eax = bytes;
-  // printf("------%d\n", bytes);
 }
 
 void sys_read(struct intr_frame *f)
@@ -237,6 +246,7 @@ void sys_read(struct intr_frame *f)
   is_buffer_valid(buffer, size);
   if (fd == STDIN_FILENO)
   {
+    // Read from terminal
     unsigned i;
     uint8_t *local_buffer = (uint8_t *)buffer;
     for (i = 0; i < size; i++)
@@ -255,6 +265,7 @@ void sys_read(struct intr_frame *f)
     f->eax = -1;
     return;
   }
+  // Read the file
   int bytes = file_read(file_ptr, buffer, size);
   lock_release(&filesys_lock);
   f->eax = bytes;
@@ -262,6 +273,7 @@ void sys_read(struct intr_frame *f)
 
 void sys_file_size(struct intr_frame *f)
 {
+  // Get the size of file
   int arg_list[3];
   extract_argument(f, arg_list, 1);
   int fd = arg_list[0];
@@ -363,7 +375,11 @@ int usraddr_to_keraddr_ptr(const void *vaddr)
 
 void check_valid_ptr(const void *vaddr)
 {
-  if ((is_user_vaddr(vaddr) == false) || (vaddr < ((void *)0x08048000)))
+  if (is_user_vaddr(vaddr) == false)
+  {
+    exit_process(-1);
+  }
+  if (vaddr < ((void *)0x08048000))
   {
     exit_process(-1);
   }

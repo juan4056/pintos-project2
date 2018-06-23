@@ -5,6 +5,9 @@
         "array": "c",
         "initializer_list": "c",
         "utility": "c",
-        "*.inc": "c"
+        "*.inc": "c",
+        "vector": "cpp",
+        "*.tcc": "c",
+        "fstream": "c"
     }
 }

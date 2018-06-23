@@ -216,10 +216,6 @@ struct child_process_warpper *new_child_process(struct thread *t)
   struct child_process_warpper *child = malloc(sizeof(struct child_process_warpper));
   // struct child_process_warpper *child;
   /* Allocate child_process_warpper. */
-  // child = palloc_get_page (PAL_ZERO);
-  // if (child == NULL){
-  //   return TID_ERROR;
-  // }
   child->tid = t->tid;
   child->load = 0;
   child->wait = false;
@@ -227,7 +223,6 @@ struct child_process_warpper *new_child_process(struct thread *t)
   child->process_ptr = t;
   list_push_back(&thread_current()->child_list,
                  &child->elem);
-  // lock_init(&child->wait_lock);
   return child;
 }
 
@@ -246,28 +241,6 @@ struct child_process_warpper *get_child_process_warpper(int tid)
     }
   }
   return NULL;
-}
-
-void remove_child_process_warpper(struct child_process_warpper *warpper)
-{
-  list_remove(&warpper->elem);
-  free(warpper);
-}
-
-void remove_child_process_list(void)
-{
-  struct thread *t = thread_current();
-  struct list_elem *next, *e = list_begin(&t->child_list);
-
-  while (e != list_end(&t->child_list))
-  {
-    next = list_next(e);
-    struct child_process_warpper *warpper = list_entry(e, struct child_process_warpper,
-                                                       elem);
-    list_remove(&warpper->elem);
-    free(warpper);
-    e = next;
-  }
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -659,6 +632,7 @@ allocate_tid(void)
 // Add file to process file list
 int add_file_to_process(struct file *file_ptr)
 {
+  // Initialize a file warpper for a file
   struct file_warpper *warpper = malloc(sizeof(struct file_warpper));
   warpper->file = file_ptr;
   warpper->exec_file = 0;
@@ -669,8 +643,9 @@ int add_file_to_process(struct file *file_ptr)
   return warpper->fd;
 }
 
-void close_process_file(int fd)
+void close_all_file(void)
 {
+  // Close all the file in list
   struct thread *cur_thread = thread_current();
   struct list_elem *e = list_begin(&cur_thread->file_list);
   struct list_elem *next = list_begin(&cur_thread->file_list);
@@ -679,17 +654,30 @@ void close_process_file(int fd)
   {
     next = list_next(e);
     struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
-    if (fd == warpper->fd || fd == -1)
+    file_close(warpper->file);
+    list_remove(&warpper->elem);
+    free(warpper);
+    e = next;
+  }
+}
+
+void close_process_file(int fd)
+{
+  // Close a single file
+  struct thread *cur_thread = thread_current();
+  struct list_elem *e;
+
+  for (e = list_begin(&cur_thread->file_list); e != list_end(&cur_thread->file_list);
+       e = list_next(e))
+  {
+    struct file_warpper *warpper = list_entry(e, struct file_warpper, elem);
+    if (fd == warpper->fd)
     {
       file_close(warpper->file);
       list_remove(&warpper->elem);
       free(warpper);
-      if (fd != -1)
-      {
-        return;
-      }
+      break;
     }
-    e = next;
   }
 }
 

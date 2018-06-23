@@ -100,24 +100,32 @@ start_process(void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int process_wait(tid_t child_tid UNUSED)
+int process_wait(tid_t child_tid)
 {
   struct child_process_warpper *warpper = get_child_process_warpper(child_tid);
   if (!warpper)
   {
+    // Return if warpper do not exist
     return -1;
   }
   if (warpper->wait)
   {
+    // Wait will only set true in this method
+    // If wait is set then return
     return -1;
   }
   warpper->wait = true;
   while (!warpper->exit)
   {
+    // When child process exit, it will set the exit to true
+    // Therefore if the exit is not set yet, just wait
     barrier();
   }
+  // Get the status from the child process
   int status = warpper->status;
-  remove_child_process_warpper(warpper);
+  // Remove the child process from it's own list
+  list_remove(&warpper->elem);
+  free(warpper);
   return status;
 }
 
@@ -127,11 +135,8 @@ void process_exit(void)
   struct thread *cur = thread_current();
   uint32_t *pd;
 
-  // Close file list
-  close_process_file(-1);
-
-  // Free child list
-  remove_child_process_list();
+  // Close all files in list
+  close_all_file();
 
   // Set exit value to true in case killed by the kernel
   if (is_thread_alive(cur->parent->tid))
@@ -506,7 +511,6 @@ setup_stack(void **esp, int argc, char **argv)
     if (success)
     {
       *esp = PHYS_BASE;
-      // uint32_t *addr_stack[argc + 1];
       char *addr_stack[argc + 1];
 
       // Add every argument to stack and store the address in stack in addr_stack
