@@ -121,7 +121,6 @@ int process_wait(tid_t child_tid UNUSED)
   return status;
 }
 
-
 /* Free the current process's resources. */
 void process_exit(void)
 {
@@ -309,6 +308,8 @@ bool load(const char *file_name, void (**eip)(void), void **esp)
     printf("load: %s: error loading executable\n", file_name);
     goto done;
   }
+
+  // file_deny_write(file);
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
@@ -540,7 +541,6 @@ setup_stack(void **esp, int argc, char **argv)
       memcpy(*esp, &argc, sizeof(int));
       *esp = *esp - sizeof(void *);
       memcpy(*esp, &addr_stack[argc], sizeof(void *));
-      // hex_dump((uintptr_t)*esp, *esp, sizeof(char) * 200, true);
     }
     else
     {

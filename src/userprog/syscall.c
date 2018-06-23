@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -166,6 +167,9 @@ void sys_open(struct intr_frame *f)
   lock_acquire(&filesys_lock);
   const char *file_name = (const char *)arg_list[0];
   struct file *file_ptr = filesys_open(file_name);
+  if(strcmp(file_name, thread_current()->name) == 0){
+    file_deny_write(file_ptr);
+  }
   if (!file_ptr)
   {
     lock_release(&filesys_lock);
@@ -211,7 +215,8 @@ void sys_write(struct intr_frame *f)
     f->eax = -1;
     return;
   }
-  if(warpper->exec_file == 1){
+  if (warpper->exec_file == 1)
+  {
     lock_release(&filesys_lock);
     f->eax = 0;
     return;
@@ -219,6 +224,7 @@ void sys_write(struct intr_frame *f)
   off_t bytes = file_write(file_ptr, buffer, size);
   lock_release(&filesys_lock);
   f->eax = bytes;
+  // printf("------%d\n", bytes);
 }
 
 void sys_read(struct intr_frame *f)
